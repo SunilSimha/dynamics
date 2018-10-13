@@ -156,7 +156,7 @@ def els2cart(els,M,m):
     vel = vel*(np.sqrt(mu/a)).to(u.km/u.s)
     return pos, vel
 
-def helio2bary(pos_h,vel_h,M,m):
+def bary2helio(pos_h,vel_h,M,m):
     """
     Converts position and velocity vectors in
     heliocentric frame to the barycentric frame.
@@ -180,7 +180,7 @@ def helio2bary(pos_h,vel_h,M,m):
     """
     return pos_h*(M+m)/M, vel_h*(M+m)/M
 
-def bary2helio(pos_h,vel_h,M,m):
+def helio2bary(pos_h,vel_h,M,m):
     """
     Converts position and velocity vectors in
     heliocentric frame to the barycentric frame.
@@ -237,7 +237,7 @@ def solve_kepler(M,e,E0=None,tol=1e-15,maxiter=20):
     root = hp.newton_rhapson(func,E0,deriv,tol,maxiter)
     return root
 
-def get_rad(t_array,M,m,a,e,t0=0*u.s):
+def get_rad(t_array,M,m,a,e,t0=0*u.s,f_flag=False):
     """
     Returns an array of radial distances
     at the instances in the input time
@@ -255,10 +255,16 @@ def get_rad(t_array,M,m,a,e,t0=0*u.s):
         Semi-major axis
     e: float
         Orbital eccentricity
+    f_flag: bool, optional
+        If true, also returns an
+        array of f values.
     Returns
     -------
     radArray: astropy.Quantity array
         Array of radial distances.
+    fArray: astropy.Quantity array
+        Array of f values. Computed only if
+        f_flag is set to `True`.
     """
     #First, all computations are done in
     #natural units. Only while returning will the
@@ -269,12 +275,21 @@ def get_rad(t_array,M,m,a,e,t0=0*u.s):
     t0_scaled = (t0*np.sqrt(mu/a**3)).decompose().value
     numT = len(t_array)
     radArray = np.zeros(numT)*AU
+    if f_flag:
+        fArray = np.zeros(numT)*u.rad
 
     for count, t in enumerate(t_scaled):
         Mval = t-t0_scaled
         E = solve_kepler(Mval,e)
         radArray[count] = a*(1-e*np.cos(E))
+        if f_flag:
+            if E < np.pi:
+                fArray[count] = np.arccos(a*(np.cos(E)-e)/radArray[count])
+            else:
+                fArray[count] = 2*np.pi*u.rad - np.arccos(a*(np.cos(E)-e)/radArray[count])
+    if f_flag:
+        return radArray, fArray
+    else:
+        return radArray
+
     
-    return radArray
-
-
